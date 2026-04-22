@@ -1,0 +1,21 @@
+---
+- name: Install HVAC monitoring packages
+  ansible.builtin.apt:
+    name: "{{ hvac_monitor.packages }}"
+    state: latest
+    update_cache: true
+
+- name: Ensure service user can access serial devices
+  ansible.builtin.user:
+    name: "{{ hvac_monitor.service_user }}"
+    groups: dialout
+    append: true
+
+- name: Ensure required directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop: "{{ hvac_monitor.directories }}"

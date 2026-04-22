@@ -1,0 +1,24 @@
+---
+- name: Ensure mosquitto is enabled and running
+  ansible.builtin.systemd:
+    name: mosquitto
+    state: started
+    enabled: true
+
+- name: Ensure Zigbee2MQTT service is enabled and running
+  ansible.builtin.systemd:
+    name: zigbee2mqtt
+    state: started
+    enabled: true
+
+- name: Ensure mqtt2prometheus service is enabled and running
+  ansible.builtin.systemd:
+    name: mqtt2prometheus
+    state: started
+    enabled: true
+
+- name: Show next-step reminder
+  ansible.builtin.debug:
+    msg:
+      - "HVAC monitoring stack is configured on {{ inventory_hostname }}."
+      - "Next: pair Zigbee sensors and map them in Homebridge MQTT plugin."

@@ -1,0 +1,69 @@
+---
+hvac_monitor:
+  service_user: paul
+  service_group: paul
+
+  packages:
+    - mosquitto
+    - mosquitto-clients
+    - nodejs
+    - npm
+    - git
+    - curl
+    - python3
+    - python3-pip
+    - jq
+
+  directories:
+    - path: /etc/hvac-monitoring
+      owner: root
+      group: root
+      mode: '0755'
+    - path: /opt/zigbee2mqtt
+      owner: paul
+      group: paul
+      mode: '0755'
+    - path: /var/lib/zigbee2mqtt
+      owner: paul
+      group: paul
+      mode: '0755'
+    - path: /opt/mqtt2prometheus
+      owner: paul
+      group: paul
+      mode: '0755'
+
+  zigbee:
+    serial_port: /dev/ttyUSB0
+    adapter: ember
+    base_topic: zigbee2mqtt
+    network_key: GENERATE
+
+  mqtt:
+    host: 127.0.0.1
+    port: 1883
+    username: hvacmon
+    password: change-me
+
+  exporter:
+    listen_address: 0.0.0.0
+    listen_port: 9641
+    metrics_path: /metrics
+
+  zigbee2mqtt:
+    repo: https://github.com/Koenkk/zigbee2mqtt.git
+    version: 2.9.2
+    install_dir: /opt/zigbee2mqtt
+    data_dir: /var/lib/zigbee2mqtt
+    devices_file: /var/lib/zigbee2mqtt/devices.yaml
+    groups_file: /var/lib/zigbee2mqtt/groups.yaml
+
+  mqtt2prometheus:
+    package_url: https://github.com/hikhvar/mqtt2prometheus/releases/download/v0.1.7/mqtt2prometheus_0.1.7_linux_arm64.deb
+    package_path: /tmp/mqtt2prometheus_0.1.7_linux_arm64.deb
+    binary_path: /usr/bin/mqtt2prometheus
+    config_path: /etc/hvac-monitoring/mqtt2prometheus.yaml
+    cache_timeout: 24h
+
+  homebridge:
+    topic_prefix: homebridge/hvac
+    sensor_topic_prefix: zigbee2mqtt

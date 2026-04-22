@@ -1,0 +1,116 @@
+---
+- name: Ensure Zigbee2MQTT data directory exists
+  ansible.builtin.file:
+    path: "{{ hvac_monitor.zigbee2mqtt.data_dir }}"
+    state: directory
+    owner: "{{ hvac_monitor.service_user }}"
+    group: "{{ hvac_monitor.service_group }}"
+    mode: '0755'
+
+- name: Checkout Zigbee2MQTT source
+  become_user: "{{ hvac_monitor.service_user }}"
+  ansible.builtin.git:
+    repo: "{{ hvac_monitor.zigbee2mqtt.repo }}"
+    dest: "{{ hvac_monitor.zigbee2mqtt.install_dir }}"
+    version: "{{ hvac_monitor.zigbee2mqtt.version }}"
+    update: true
+    force: true
+    accept_hostkey: true
+
+- name: Create and enable swapfile (needed for pnpm native module compilation)
+  ansible.builtin.shell: |
+    set -e
+    if [ ! -f /swapfile ]; then
+      fallocate -l 2G /swapfile
+      chmod 600 /swapfile
+      mkswap /swapfile
+    fi
+    if ! grep -q /swapfile /proc/swaps; then
+      swapon /swapfile
+    fi
+  changed_when: false
+
+- name: Persist swapfile in /etc/fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: '/swapfile none swap sw 0 0'
+    state: present
+
+- name: Install pnpm globally
+  community.general.npm:
+    name: pnpm
+    global: true
+    state: present
+
+- name: Install Zigbee2MQTT dependencies with pnpm
+  become_user: "{{ hvac_monitor.service_user }}"
+  ansible.builtin.shell: |
+    set -e
+    pnpm install --frozen-lockfile
+    pnpm run build
+    pnpm prune --prod
+  args:
+    chdir: "{{ hvac_monitor.zigbee2mqtt.install_dir }}"
+  environment:
+    HOME: /home/{{ hvac_monitor.service_user }}
+
+- name: Ensure Zigbee2MQTT package metadata exists
+  ansible.builtin.stat:
+    path: "{{ hvac_monitor.zigbee2mqtt.install_dir }}/package.json"
+  register: zigbee2mqtt_package_json
+
+- name: Fail if Zigbee2MQTT package metadata is missing
+  ansible.builtin.fail:
+    msg: "Zigbee2MQTT package.json missing under {{ hvac_monitor.zigbee2mqtt.install_dir }}"
+  when: not zigbee2mqtt_package_json.stat.exists
+
+- name: Write Zigbee2MQTT configuration
+  ansible.builtin.copy:
+    dest: "{{ hvac_monitor.zigbee2mqtt.data_dir }}/configuration.yaml"
+    owner: "{{ hvac_monitor.service_user }}"
+    group: "{{ hvac_monitor.service_group }}"
+    mode: '0644'
+    content: |
+      homeassistant: false
+      permit_join: false
+      mqtt:
+        base_topic: {{ hvac_monitor.zigbee.base_topic }}
+        server: mqtt://{{ hvac_monitor.mqtt.host }}:{{ hvac_monitor.mqtt.port }}
+        user: {{ hvac_monitor.mqtt.username }}
+        password: {{ hvac_monitor.mqtt.password }}
+      serial:
+        port: {{ hvac_monitor.zigbee.serial_port }}
+        adapter: {{ hvac_monitor.zigbee.adapter }}
+      advanced:
+        network_key: {{ hvac_monitor.zigbee.network_key }}
+      frontend:
+        enabled: false
+      devices: {{ hvac_monitor.zigbee2mqtt.devices_file }}
+      groups: {{ hvac_monitor.zigbee2mqtt.groups_file }}
+
+- name: Write Zigbee2MQTT systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/zigbee2mqtt.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Zigbee2MQTT
+      Wants=network-online.target
+      After=network-online.target mosquitto.service
+
+      [Service]
+      Type=simple
+      User={{ hvac_monitor.service_user }}
+      Group={{ hvac_monitor.service_group }}
+      WorkingDirectory={{ hvac_monitor.zigbee2mqtt.install_dir }}
+      Environment=ZIGBEE2MQTT_DATA={{ hvac_monitor.zigbee2mqtt.data_dir }}
+      ExecStart=/usr/bin/node index.js
+      Restart=always
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+  notify:
+    - systemd daemon-reload

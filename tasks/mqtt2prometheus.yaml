@@ -1,0 +1,63 @@
+---
+- name: Download mqtt2prometheus package
+  ansible.builtin.get_url:
+    url: "{{ hvac_monitor.mqtt2prometheus.package_url }}"
+    dest: "{{ hvac_monitor.mqtt2prometheus.package_path }}"
+    mode: '0644'
+
+- name: Install mqtt2prometheus package
+  ansible.builtin.apt:
+    deb: "{{ hvac_monitor.mqtt2prometheus.package_path }}"
+    state: present
+
+- name: Write mqtt2prometheus config
+  ansible.builtin.copy:
+    dest: "{{ hvac_monitor.mqtt2prometheus.config_path }}"
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      mqtt:
+        server: tcp://{{ hvac_monitor.mqtt.host }}:{{ hvac_monitor.mqtt.port }}
+        user: {{ hvac_monitor.mqtt.username }}
+        password: {{ hvac_monitor.mqtt.password }}
+        topic_path: {{ hvac_monitor.zigbee.base_topic }}/#
+        device_id_regex: "{{ hvac_monitor.zigbee.base_topic }}/(?P<deviceid>.*)"
+      cache:
+        timeout: {{ hvac_monitor.mqtt2prometheus.cache_timeout }}
+      metrics:
+        - prom_name: temperature_celsius
+          mqtt_name: temperature
+          help: "Temperature reading in Celsius"
+          type: gauge
+        - prom_name: humidity_percent
+          mqtt_name: humidity
+          help: "Humidity reading in percent"
+          type: gauge
+        - prom_name: battery_percent
+          mqtt_name: battery
+          help: "Battery level in percent"
+          type: gauge
+
+- name: Write mqtt2prometheus systemd unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/mqtt2prometheus.service
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=MQTT to Prometheus Exporter
+      Wants=network-online.target
+      After=network-online.target mosquitto.service zigbee2mqtt.service
+
+      [Service]
+      Type=simple
+      ExecStart={{ hvac_monitor.mqtt2prometheus.binary_path }} -config {{ hvac_monitor.mqtt2prometheus.config_path }} -listen-address {{ hvac_monitor.exporter.listen_address }} -listen-port {{ hvac_monitor.exporter.listen_port }}
+      Restart=always
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+  notify:
+    - systemd daemon-reload
