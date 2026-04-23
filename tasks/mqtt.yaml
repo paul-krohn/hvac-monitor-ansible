@@ -1,0 +1,45 @@
+---
+- name: Ensure Mosquitto password file exists for HVAC user
+  ansible.builtin.command:
+    argv:
+      - mosquitto_passwd
+      - -b
+      - -c
+      - /etc/mosquitto/passwd
+      - "{{ hvac_monitor.mqtt.username | default('hvacmon') }}"
+      - "{{ hvac_monitor.mqtt.password | default('change-me') }}"
+    creates: /etc/mosquitto/passwd
+  notify:
+    - restart mosquitto
+
+- name: Ensure Mosquitto HVAC user password is set
+  ansible.builtin.command:
+    argv:
+      - mosquitto_passwd
+      - -b
+      - /etc/mosquitto/passwd
+      - "{{ hvac_monitor.mqtt.username | default('hvacmon') }}"
+      - "{{ hvac_monitor.mqtt.password | default('change-me') }}"
+  notify:
+    - restart mosquitto
+
+- name: Ensure Mosquitto password file permissions
+  ansible.builtin.file:
+    path: /etc/mosquitto/passwd
+    owner: root
+    group: mosquitto
+    mode: '0640'
+
+- name: Configure Mosquitto listener
+  ansible.builtin.copy:
+    dest: /etc/mosquitto/conf.d/20-hvac-listener.conf
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      # Managed by Ansible (paul-krohn.hvac-monitor)
+      listener {{ hvac_monitor.mqtt.port | default(1883) }} {{ hvac_monitor.mqtt.listen_address | default('0.0.0.0') }}
+      allow_anonymous false
+      password_file /etc/mosquitto/passwd
+  notify:
+    - restart mosquitto

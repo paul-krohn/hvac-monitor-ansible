@@ -1,6 +1,6 @@
 ---
 - include_tasks: package.yaml
 - include_tasks: zigbee2mqtt.yaml
+- include_tasks: mqtt.yaml
 - include_tasks: mqtt2prometheus.yaml
-- include_tasks: config.yaml
 - include_tasks: service.yaml
