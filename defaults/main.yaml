@@ -41,6 +41,7 @@ hvac_monitor:
   mqtt:
     host: 127.0.0.1
     port: 1883
+    listen_address: 0.0.0.0
     username: hvacmon
     password: change-me
 
