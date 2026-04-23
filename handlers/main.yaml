@@ -2,3 +2,8 @@
 - name: systemd daemon-reload
   ansible.builtin.systemd:
     daemon_reload: true
+
+- name: restart mosquitto
+  ansible.builtin.systemd:
+    name: mosquitto
+    state: restarted
