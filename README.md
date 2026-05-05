@@ -37,3 +37,28 @@ After deployment:
 1. Pair Zigbee sensors with the adapter
 2. Map sensors in the Homebridge MQTT plugin configuration
 3. Monitor metrics at `http://<host>:9641/metrics`
+
+### Pairing sensors
+
+#### Enable
+
+```shell,
+mosquitto_pub \
+  -h 127.0.0.1 -p 1883 \
+  -u hvacmon -P 'change-me' \
+  -t 'zigbee2mqtt/bridge/request/permit_join' \
+  -m '{"value": true, "time": 254}'
+```
+NB `254` seconds is the maximum time to allow pairing
+#### Disable
+```shell
+mosquitto_pub -h 127.0.0.1 -p 1883 -u hvacmon -P 'change-me' -t 'zigbee2mqtt/bridge/request/permit_join' -m '{"value": false}'
+```
+
+mosquitto_pub \
+  -h 127.0.0.1 -p 1883 \
+  -u hvacmon -P 'change-me' \
+  -t 'zigbee2mqtt/bridge/request/device/rename' \
+  -m '{"from":"0x00124b00231abcde","to":"upstairs-office"}'
+
+  mosquitto_sub -h 127.0.0.1 -p 1883 -u hvacmon -P 'change-me' -t 'zigbee2mqtt/bridge/response/device/rename' -C 1 -v
