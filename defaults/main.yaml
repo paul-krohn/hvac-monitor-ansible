@@ -6,13 +6,16 @@ hvac_monitor:
   packages:
     - mosquitto
     - mosquitto-clients
-    - nodejs
-    - npm
     - git
     - curl
+    - ca-certificates
+    - gnupg
     - python3
     - python3-pip
     - jq
+
+  nodejs:
+    major_version: 22
 
   directories:
     - path: /etc/hvac-monitoring
