@@ -34,10 +34,14 @@
   when: nodesource_repo_key.changed or not nodesource_keyring.stat.exists
 
 - name: Configure NodeSource APT repository
-  ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ hvac_monitor.nodejs.major_version }}.x nodistro main"
-    filename: nodesource
-    state: present
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/nodesource.sources
+    content: |
+      Types: deb
+      URIs: https://deb.nodesource.com/node_{{ hvac_monitor.nodejs.major_version }}.x
+      Suites: nodistro
+      Components: main
+      Signed-By: /etc/apt/keyrings/nodesource.gpg
 
 - name: Install Node.js from NodeSource
   ansible.builtin.apt:
@@ -64,11 +68,14 @@
     state: latest
     update_cache: true
 
-- name: Ensure service user can access serial devices
+- name: Create HVAC monitoring service user
   ansible.builtin.user:
     name: "{{ hvac_monitor.service_user }}"
+    system: true
+    shell: /usr/sbin/nologin
     groups: dialout
-    append: true
+    comment: "HVAC monitoring service account"
+    state: present
 
 - name: Ensure required directories exist
   ansible.builtin.file:

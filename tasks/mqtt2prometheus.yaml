@@ -48,11 +48,17 @@
     content: |
       [Unit]
       Description=MQTT to Prometheus Exporter
-      Wants=network-online.target
-      After=network-online.target mosquitto.service zigbee2mqtt.service
+      # Device topics are published non-retained, so anything sent while this
+      # subscriber is down is lost for good.  Start before zigbee2mqtt, and only
+      # order against the broker (which listens on localhost, not the network).
+      Wants=mosquitto.service
+      After=mosquitto.service
+      Before=zigbee2mqtt.service
 
       [Service]
       Type=simple
+      User={{ hvac_monitor.service_user }}
+      Group={{ hvac_monitor.service_group }}
       ExecStart={{ hvac_monitor.mqtt2prometheus.binary_path }} -config {{ hvac_monitor.mqtt2prometheus.config_path }} -listen-address {{ hvac_monitor.exporter.listen_address }} -listen-port {{ hvac_monitor.exporter.listen_port }}
       Restart=always
       RestartSec=10

@@ -7,6 +7,22 @@
     group: "{{ hvac_monitor.service_group }}"
     mode: '0755'
 
+- name: Ensure Zigbee2MQTT source tree is owned by service user
+  ansible.builtin.file:
+    path: "{{ hvac_monitor.zigbee2mqtt.install_dir }}"
+    state: directory
+    owner: "{{ hvac_monitor.service_user }}"
+    group: "{{ hvac_monitor.service_group }}"
+    recurse: true
+
+- name: Ensure Zigbee2MQTT data tree is owned by service user
+  ansible.builtin.file:
+    path: "{{ hvac_monitor.zigbee2mqtt.data_dir }}"
+    state: directory
+    owner: "{{ hvac_monitor.service_user }}"
+    group: "{{ hvac_monitor.service_group }}"
+    recurse: true
+
 - name: Checkout Zigbee2MQTT source
   become_user: "{{ hvac_monitor.service_user }}"
   ansible.builtin.git:
@@ -53,6 +69,7 @@
     chdir: "{{ hvac_monitor.zigbee2mqtt.install_dir }}"
   environment:
     HOME: /home/{{ hvac_monitor.service_user }}
+    CI: "true"
 
 - name: Ensure Zigbee2MQTT package metadata exists
   ansible.builtin.stat:
@@ -87,6 +104,19 @@
         enabled: false
       devices: {{ hvac_monitor.zigbee2mqtt.devices_file }}
       groups: {{ hvac_monitor.zigbee2mqtt.groups_file }}
+  notify:
+    - restart zigbee2mqtt
+
+# systemd names the auto-generated .device unit after the escaped device path,
+# so derive it from the configured serial port instead of hard-coding the
+# escaped form (which embeds the dongle's serial number).
+- name: Resolve systemd .device unit for the Zigbee coordinator
+  ansible.builtin.command:
+    cmd: systemd-escape --path --suffix=device {{ hvac_monitor.zigbee.serial_port }}
+  register: zigbee_coordinator_device_unit
+  changed_when: false
+  # Read-only, and the unit template below needs it even in check mode.
+  check_mode: false
 
 - name: Write Zigbee2MQTT systemd unit
   ansible.builtin.copy:
@@ -97,8 +127,12 @@
     content: |
       [Unit]
       Description=Zigbee2MQTT
-      Wants=network-online.target
-      After=network-online.target mosquitto.service
+      Wants=mosquitto.service
+      After=mosquitto.service
+      # Hold off until the coordinator is enumerated, and stop if it is
+      # unplugged, instead of Restart=always looping on a missing serial port.
+      BindsTo={{ zigbee_coordinator_device_unit.stdout }}
+      After={{ zigbee_coordinator_device_unit.stdout }}
 
       [Service]
       Type=simple

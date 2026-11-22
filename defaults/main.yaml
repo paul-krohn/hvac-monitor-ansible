@@ -1,7 +1,7 @@
 ---
 hvac_monitor:
-  service_user: paul
-  service_group: paul
+  service_user: hvacmon
+  service_group: hvacmon
 
   packages:
     - mosquitto
@@ -23,23 +23,23 @@ hvac_monitor:
       group: root
       mode: '0755'
     - path: /opt/zigbee2mqtt
-      owner: paul
-      group: paul
+      owner: hvacmon
+      group: hvacmon
       mode: '0755'
     - path: /var/lib/zigbee2mqtt
-      owner: paul
-      group: paul
+      owner: hvacmon
+      group: hvacmon
       mode: '0755'
     - path: /opt/mqtt2prometheus
-      owner: paul
-      group: paul
+      owner: hvacmon
+      group: hvacmon
       mode: '0755'
 
   zigbee:
-    serial_port: /dev/ttyUSB0
+    serial_port: "{{ hvac_monitor_zigbee_serial_port | default('/dev/ttyUSB0') }}"
     adapter: ember
     base_topic: zigbee2mqtt
-    network_key: GENERATE
+    network_key: [162, 2, 122, 239, 87, 206, 47, 49, 173, 164, 151, 48, 169, 169, 90, 215]
 
   mqtt:
     host: 127.0.0.1
