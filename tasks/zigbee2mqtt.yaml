@@ -81,6 +81,24 @@
     msg: "Zigbee2MQTT package.json missing under {{ hvac_monitor.zigbee2mqtt.install_dir }}"
   when: not zigbee2mqtt_package_json.stat.exists
 
+# zigbee2mqtt owns this file at runtime, so Ansible has to be authoritative or
+# the two fight.  Keeping the ieee -> name map declarative means a re-paired
+# sensor comes back under its old name with no Grafana or dashboard changes.
+- name: Write Zigbee2MQTT device map
+  ansible.builtin.copy:
+    dest: "{{ hvac_monitor.zigbee2mqtt.devices_file }}"
+    owner: "{{ hvac_monitor.service_user }}"
+    group: "{{ hvac_monitor.service_group }}"
+    mode: '0644'
+    content: |
+      {% for ieee, name in hvac_monitor.zigbee.devices | dictsort %}
+      '{{ ieee }}':
+        friendly_name: {{ name }}
+      {% endfor %}
+  when: hvac_monitor.zigbee.devices | length > 0
+  notify:
+    - restart zigbee2mqtt
+
 - name: Write Zigbee2MQTT configuration
   ansible.builtin.copy:
     dest: "{{ hvac_monitor.zigbee2mqtt.data_dir }}/configuration.yaml"
@@ -100,6 +118,9 @@
         adapter: {{ hvac_monitor.zigbee.adapter }}
       advanced:
         network_key: {{ hvac_monitor.zigbee.network_key }}
+        pan_id: {{ hvac_monitor.zigbee.pan_id | int }}
+        ext_pan_id: {{ hvac_monitor.zigbee.ext_pan_id | list }}
+        channel: {{ hvac_monitor.zigbee.channel | int }}
       frontend:
         enabled: false
       devices: {{ hvac_monitor.zigbee2mqtt.devices_file }}

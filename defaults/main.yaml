@@ -40,6 +40,17 @@ hvac_monitor:
     adapter: ember
     base_topic: zigbee2mqtt
     network_key: [162, 2, 122, 239, 87, 206, 47, 49, 173, 164, 151, 48, 169, 169, 90, 215]
+    # Pin the full network identity, not just the key.  These are zigbee2mqtt's
+    # own defaults, which is why a coordinator re-form has so far landed on the
+    # same network by luck; stating them makes a rebuilt coordinator re-form an
+    # identical network so devices rejoin secured instead of needing re-pairing.
+    pan_id: "{{ hvac_monitor_zigbee_pan_id | default(6754) }}"
+    ext_pan_id: "{{ hvac_monitor_zigbee_ext_pan_id | default([221, 221, 221, 221, 221, 221, 221, 221]) }}"
+    channel: "{{ hvac_monitor_zigbee_channel | default(11) }}"
+    # ieee -> friendly_name.  Authoritative: zigbee2mqtt rewrites devices.yaml
+    # on join, so a newly paired sensor must be added here or the next run
+    # reverts its name.
+    devices: "{{ hvac_monitor_zigbee_devices | default({}) }}"
 
   mqtt:
     host: 127.0.0.1
